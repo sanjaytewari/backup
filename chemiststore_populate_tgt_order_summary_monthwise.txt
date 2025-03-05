@@ -1,0 +1,96 @@
+	
+	INSERT INTO chemiststore.tgt_order_summary
+(user_id, username, shop_id, seller_name, product_id, product_name, brand_id, brand_name, cat_id, category_name, subcat_id, subcat_name, driver_id, drivername, status_id, order_status, ordered_period, qty, discounted_price, discount_price, total_price,ordered_product_count,distinct_order_count)
+select t.* from 
+(
+select
+	po.user_id,
+	u.username,
+	po.shop_id,
+	s.name as seller_name,
+	po.product_id ,
+	p.product_name,
+	mdb.br_pk_id as brand_id,
+	mdb.br_name as brand_name,
+	c.id as cat_id,
+	c.category_name,
+	mds.sbcat_pk_id as subcat_id,
+	mds.sbcat_name as subcat_name,
+	odr.odr_fk_driver_id as driver_id,
+	odr.username as drivername,
+	odr.odr_status as status_id,
+	mdss.mds_name as order_status,
+	cast(concat(cast(extract(year from po.created_at) as char(30)), '-', cast(extract(month from po.created_at) as char(30)), '-', '01') as date)as ordered_period,
+	sum(po.qty) as qty,
+	sum(po.discounted_price)as discounted_price,
+	sum(po.discount_price) as discount_price ,
+	sum(po.total_price) as total_price, 
+	count(*) as ordered_product_count,
+	(select count(distinct po.order_id) from product_order po,
+	                                         `user` u,
+	                                         order_delivery_request odr
+	 where po.order_id = odr_fk_order_id
+	 and po.user_id = u.user_id
+	 and odr.odr_isaccept = 1) as distinct_order_count
+from
+	(
+	select
+		user_id,
+		username ,
+		email
+	from
+		user ) u
+inner join product_order po on
+	u.user_id = po.user_id
+inner join seller s on
+	s.id = po.shop_id
+inner join category c on
+	c.id = po.fk_cat_id
+inner join master_data_subcategory mds on
+	mds.sbcat_pk_id = po.fk_sbcat_id
+inner join master_data_brands mdb on
+	mdb.br_pk_id = po.fk_br_id
+inner join products p on
+	po.product_id = p.product_id
+inner join (
+	select
+		odr.*,
+		u.username
+	from
+		order_delivery_request odr,
+		(
+		select
+			user_id,
+			username ,
+			email
+		from
+			user ) u
+	where
+		u.user_id = odr.odr_fk_driver_id
+		-- and odr_status not in (5,7,0) 
+		and odr_isaccept = 1) odr on
+	odr.odr_fk_order_id = po.order_id
+inner join chemiststore.master_delivery_status mdss on
+	mdss.mds_pk_id = odr.odr_status
+	-- where odr.odr_status = 6
+group by
+	po.user_id,
+	u.username,
+	po.shop_id,
+	po.product_id,
+	p.product_name,
+	mdb.br_pk_id,
+	s.name,
+	c.category_name,
+	mds.sbcat_name,
+	mdb.br_name ,
+	odr.odr_fk_driver_id ,
+	odr.odr_status,
+	c.id,
+	mds.sbcat_pk_id,
+	mdss.mds_name,
+	odr.username,
+	cast(concat(cast(extract(year from po.created_at) as char(30)), '-', cast(extract(month from po.created_at) as char(30)), '-', '01') as date)
+)t
+
+	

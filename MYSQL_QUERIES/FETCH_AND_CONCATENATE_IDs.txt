@@ -1,0 +1,47 @@
+CREATE PROCEDURE FetchAndConcatenateIDs()
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE current_offset INT DEFAULT 0;
+    DECLARE id1 INT DEFAULT NULL;
+    DECLARE id2 INT DEFAULT NULL;
+    DECLARE concatenated_ids TEXT DEFAULT '';
+    DECLARE offset1 INT;
+    DECLARE offset2 INT;
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    REPEAT
+        SET offset1 = current_offset;
+        SET offset2 = current_offset + 1;
+
+        SET id1 = NULL;
+        SET id2 = NULL;
+
+        SELECT id 
+        INTO id1
+        FROM (
+            SELECT DISTINCT id 
+            FROM stock_statementapp_gcv.t_email_log
+            ORDER BY id ASC
+            LIMIT 1 OFFSET offset1
+        ) AS temp1;
+
+        SELECT id 
+        INTO id2
+        FROM (
+            SELECT DISTINCT id 
+            FROM stock_statementapp_gcv.t_email_log
+            ORDER BY id ASC
+            LIMIT 1 OFFSET offset2
+        ) AS temp2;
+
+        IF id1 IS NOT NULL AND id2 IS NOT NULL THEN
+            SET concatenated_ids = CONCAT(concatenated_ids, IF(concatenated_ids = '', '', ','), id1, ',', id2);
+        END IF;
+
+        SET current_offset = current_offset + 2;
+
+    UNTIL done END REPEAT;
+
+    SELECT concatenated_ids AS result;
+END

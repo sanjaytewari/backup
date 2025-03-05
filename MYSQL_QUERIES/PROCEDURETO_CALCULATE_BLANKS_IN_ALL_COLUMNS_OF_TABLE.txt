@@ -1,0 +1,25 @@
+ CREATE PROCEDURE GetblankCounts(IN p_schema VARCHAR(540), IN p_table VARCHAR(540))
+BEGIN
+    DECLARE sql_query TEXT;
+
+   SELECT 
+        GROUP_CONCAT(CONCAT(
+            'SELECT ''', COLUMN_NAME, ''' AS column_name, COUNT(*) AS blank_count FROM ', p_table, ' WHERE ', COLUMN_NAME, ' = '''''
+        ) SEPARATOR ' UNION ALL ') INTO sql_query
+    FROM 
+        information_schema.COLUMNS
+    WHERE 
+        TABLE_NAME = p_table AND TABLE_SCHEMA = p_schema AND DATA_TYPE != 'datetime';
+       
+    SET sql_query = CONCAT('SELECT * FROM (', sql_query, ') AS null_counts');
+
+    -- Prepare and execute the dynamic SQL
+    SET @stmt = sql_query;  -- Store the query in a user-defined variable
+    PREPARE stmt FROM @stmt;
+    EXECUTE stmt;
+    DEALLOCATE PREPARE stmt;
+END
+
+
+call GetblankCounts('sfc_live_test','vendor_allocation')
+

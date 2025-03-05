@@ -1,0 +1,134 @@
+
+drop PROCEDURE `sfc_live_test`.`CalculateQuarterBalances_test_sfc`
+
+CREATE DEFINER=`sfclivetest`@`%` PROCEDURE `sfc_live_test`.`CalculateQuarterBalances_test_sfc`()
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE currentFY VARCHAR(10);
+    DECLARE currentQuarter VARCHAR(2);
+    DECLARE current_scheme VARCHAR(240);
+    DECLARE current_zp INT;
+    DECLARE current_gp INT;
+    DECLARE current_ps INT;
+    DECLARE cur_expenditure DECIMAL(22, 2);
+    DECLARE current_quarter_limit DECIMAL(22, 2);
+    DECLARE v_total_limit DECIMAL(22, 2) DEFAULT 0; -- Initialize to 0
+    DECLARE cur_next_quarter VARCHAR(50);
+    DECLARE cur_next_fy VARCHAR(50);
+    DECLARE cur_prev_quarter VARCHAR(50);
+    DECLARE cur_prev_fy VARCHAR(50);
+    DECLARE current_balance DECIMAL(22, 2);
+	DECLARE prev_balance DECIMAL(22, 2) DEFAULT 0;
+    -- Define the cursor
+    DECLARE balance_gp CURSOR FOR 
+        SELECT a.`FY`, 
+               a.`Quarter`, 
+               a.`Scheme`, 
+               a.`zp`, 
+               a.`ps`, 
+               a.`gp`,
+               COALESCE(b.balance, 0) AS `expenditure`,
+               a.`Total_Limit` AS `current_quarter_limit`,
+               a.`Next_Quarter`,
+               a.`Next_Fy`,
+               CASE 
+                   WHEN a.`Quarter` = 'Q1' THEN 'Q4'
+                   ELSE CONCAT('Q', CAST((CAST(SUBSTR(a.`Quarter`, 2) AS SIGNED) - 1) AS CHAR(45))) 
+               END AS prev_quarter,
+               CASE 
+                   WHEN a.`Quarter` = 'Q1' THEN CONCAT(CAST(CAST(SUBSTR(a.`Fy`, 1, 4) AS SIGNED) - 1 AS CHAR(45)), '-', CAST((CAST(SUBSTR(a.`Fy`, 6) AS SIGNED) - 1) AS CHAR))
+                   ELSE a.`FY`
+               END AS prev_fy
+        FROM sfc_live_test.tgt_balance_master_test a
+        LEFT JOIN sfc_live_test.tgt_transaction_summary b ON
+            b.FY = a.FY 
+            AND b.Quarter = a.Quarter
+            AND b.Scheme = a.Scheme
+            AND b.zp = CAST(a.zp AS SIGNED)
+            AND COALESCE(b.ps, 0) = CAST(COALESCE(a.ps, '0') AS SIGNED)
+            AND COALESCE(b.gp, 0) = CAST(COALESCE(a.gp, '0') AS SIGNED)
+--         WHERE a.Scheme = 'gp' 
+--           AND a.zp = '68' 
+--           AND coalesce(a.ps,'0') = coalesce('7100','0') 
+--           AND coalesce(a.gp,'0') = coalesce('298089','0')
+        ORDER BY a.`FY`, a.`Quarter`;
+
+    -- Handle end of cursor
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+   
+    truncate sfc_live_test.limit_balance_summary_test;
+
+    -- Open cursor
+    OPEN balance_gp;
+    
+    -- Loop to fetch each record
+    read_loop: LOOP
+        FETCH balance_gp INTO currentFY, currentQuarter, current_scheme, current_zp, current_ps, current_gp, cur_expenditure, current_quarter_limit, cur_next_quarter, cur_next_fy, cur_prev_quarter, cur_prev_fy;
+        
+        -- Check if done flag is set
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+
+        -- Debugging: Check values fetched from cursor
+--         SELECT 'Fetched Values:', currentFY, currentQuarter, current_scheme, current_zp, current_ps, current_gp, cur_expenditure, current_quarter_limit, cur_next_quarter, cur_next_fy, cur_prev_quarter, cur_prev_fy;
+        
+       SET current_balance = COALESCE(v_total_limit, 0) - COALESCE(cur_expenditure, 0);
+        -- Sum the current quarter's limit to the total limit
+
+        -- Update the `total_limit` field in the summary table
+--         UPDATE sfc_live_test.limit_balance_summary_test
+--         SET `total_limit` = v_total_limit
+--         WHERE `FY` = currentFY 
+--           AND `Quarter` = currentQuarter
+--           AND `Scheme` = current_scheme
+--           AND `zp` = current_zp
+--           AND `ps` = current_ps
+--           AND `gp` = current_gp;
+         
+        -- Calculate current balance
+        SET current_balance = COALESCE(current_quarter_limit, 0) - COALESCE(cur_expenditure, 0);
+       
+--         SET v_total_limit = COALESCE(v_total_limit, 0) + COALESCE(current_balance, 0);
+
+
+        -- Debugging: Check calculated balance
+--         SELECT 'Current Balance:', current_balance;
+
+        -- Insert the current balance into the summary table
+--         INSERT INTO sfc_live_test.limit_balance_summary_test
+--         (`FY`, `Quarter`, `Scheme`, `zp`, `ps`, `gp`, `current_quarter_limit`, `expenditure`, `balance`,`prev_quarter`,`prev_fy`,Next_Quarter,Next_FY)
+--         VALUES (currentFY, currentQuarter, current_scheme, current_zp, current_ps, current_gp, COALESCE(current_quarter_limit, 0), cur_expenditure, current_balance, cur_prev_quarter, cur_prev_fy, cur_next_quarter, cur_next_fy);
+
+        INSERT INTO sfc_live_test.limit_balance_summary_test
+        (`FY`, `Quarter`, `Scheme`, `zp`, `ps`, `gp`, `current_quarter_limit`, `expenditure`, `balance`,`prev_quarter`,`prev_fy`,Next_Quarter,Next_FY)
+        VALUES (currentFY, currentQuarter, current_scheme, current_zp, current_ps, current_gp, COALESCE(current_quarter_limit, 0), cur_expenditure, current_balance, cur_prev_quarter, cur_prev_fy, cur_next_quarter, cur_next_fy);
+
+        -- Debugging: Check insertion
+--         SELECT 'Record Inserted';
+       
+       SET v_total_limit = COALESCE(v_total_limit, 0) + COALESCE(current_balance, 0);
+       
+       UPDATE sfc_live_test.limit_balance_summary_test
+        SET `total_limit` = v_total_limit
+        WHERE `FY` = currentFY 
+          AND `Quarter` = currentQuarter
+          AND `Scheme` = current_scheme
+          AND `zp` = current_zp
+          AND coalesce(`ps`,'0') = coalesce(current_ps,'0')
+          AND coalesce(`gp`,'0') = coalesce(current_gp,'0');
+         
+    END LOOP;
+
+    -- Close the cursor
+    CLOSE balance_gp;
+    
+    -- Debugging: Check after loop finishes
+--     SELECT 'Cursor closed and procedure completed';
+END;
+         
+
+call `sfc_live_test`.`CalculateQuarterBalances_test_sfc`()
+
+-- truncate sfc_live_test.limit_balance_summary_test
+select * from sfc_live_test.limit_balance_summary_test

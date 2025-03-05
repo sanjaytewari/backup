@@ -1,0 +1,5 @@
+EXPRESSION FOR DYNAMIC PAGE IN FOOTER
+-> ="Page " & Globals!PageNumber & " of " & Globals!TotalPages
+
+EXPRESSION FOR DATE AND TIME
+-> =Globals!ExecutionTime

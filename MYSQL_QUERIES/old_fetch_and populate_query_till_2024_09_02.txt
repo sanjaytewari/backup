@@ -1,0 +1,69 @@
+CREATE DEFINER=`stockstatementappgcv`@`%` PROCEDURE `stock_statementapp_gcv`.`fetch_and_populate_t_final_output`(p_date date)
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE current_offset INT DEFAULT 0;
+    DECLARE id1 INT DEFAULT NULL;
+    DECLARE id2 INT DEFAULT NULL;
+    DECLARE concatenated_ids TEXT DEFAULT '';
+    DECLARE offset1 INT;
+    DECLARE offset2 INT;
+    DECLARE cur_attachment_name text;
+    DECLARE cur_count1 int;
+    DECLARE cur_id1 int;
+    DECLARE v_id int;
+    DECLARE v_id1 int;
+    DECLARE v_id_text varchar(360);
+    DECLARE attachment_name_count CURSOR FOR
+     select distinct b.attachment_name,a.count1 from
+        (select attachment_name , count(*) as count1
+from stock_statementapp_gcv.t_email_log
+group by  attachment_name )a
+right join  stock_statementapp_gcv.t_email_log b
+on a.attachment_name = b.attachment_name
+where cast(b.created_timestamp as date) between DATE_SUB(LAST_DAY(p_date), INTERVAL DAY(LAST_DAY(p_date)) - 1 DAY) and p_date
+and b.process_timestamp is not null;
+
+DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+ OPEN attachment_name_count;
+    read_loop: LOOP
+        FETCH attachment_name_count INTO cur_attachment_name,cur_count1;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+       
+--        insert into stock_statementapp_gcv.debug(attachment_name,count1) values(cur_attachment_name,cur_count1);
+--        SELECT CONCAT('Fetched attachment_name: ', cur_attachment_name, ', count1: ', cur_count1) AS fetched_values;
+        set v_id = 0;
+--        set v_id1 = 0;
+
+       if (cur_count1 = 1) 
+       then 
+          select id into v_id
+          FROM stock_statementapp_gcv.t_email_log
+          where attachment_name = cur_attachment_name;
+--          insert into stock_statementapp_gcv.debug(v_id) values(v_id);
+         
+--          SELECT CONCAT('NOTICE: v_id = ', v_id) AS notice;
+
+--          delete from stock_statementapp_gcv.t_final_output a
+--          where t_email_log_id = v_id;
+         
+         CALL stock_statementapp_gcv.populate_t_final_output(v_id);
+       else         
+         set v_id1 = CompareAndFindFinalValue(cur_attachment_name);
+        
+        delete from stock_statementapp_gcv.t_final_output a
+        where t_email_log_id in (select distinct id from stock_statementapp_gcv.t_email_log
+                         where attachment_name = cur_attachment_name)
+        and t_email_log_id != v_id1
+        and cast(from_date as date)  between DATE_SUB(LAST_DAY(p_date), INTERVAL DAY(LAST_DAY(p_date)) - 1 DAY) and p_date;
+        
+--         insert into stock_statementapp_gcv.debug(v_id1) values(v_id1);
+--             SELECT CONCAT('NOTICE: v_id1 = ', v_id1) AS notice;
+        CALL stock_statementapp_gcv.populate_t_final_output(v_id1);
+      end if;
+        
+    end loop;
+         CLOSE attachment_name_count;
+END;

@@ -1,0 +1,69 @@
+ CREATE DEFINER=`stockstatementappgcv`@`%` PROCEDURE `stock_statementapp_gcv`.`get_column_sequence`(p_email_id bigint,p_final_header_name VARCHAR(360))
+BEGIN
+    -- Declare variables
+--     DECLARE v_final_headers_name VARCHAR(360);
+--     DECLARE v_lookup_other_name VARCHAR(360);
+    DECLARE v_column_no BIGINT;
+    DECLARE v_count BIGINT;
+--     DECLARE v_t_email_log_id BIGINT;
+
+    -- Create temporary table
+    CREATE TEMPORARY TABLE stock_statementapp_gcv.temp_table_get_header (
+--         final_headers_name VARCHAR(360),
+--         lookup_other_name VARCHAR(360),
+        column_no BIGINT
+--         t_email_log_id BIGINT
+    );
+
+   select count(*) into v_count from 
+   (SELECT DISTINCT 
+--     a.final_headers_name,
+--                     a.lookup_other_name,
+--                     b.stockest_name,
+--                     b.gstin,
+--                     b.pincode,
+                    b.column_no
+--                     b.t_email_log_id
+    FROM stock_statementapp_gcv.m_lookup_values a
+    INNER JOIN stock_statementapp_gcv.t_attachment_header b ON a.lookup_other_name = b.header_name
+    WHERE b.t_email_log_id = p_email_id
+    and  a.final_headers_name = p_final_header_name) b;
+   
+   if (v_count = 1)
+   then 
+    -- Insert data into temporary table
+    INSERT INTO stock_statementapp_gcv.temp_table_get_header (
+--         final_headers_name,
+--         lookup_other_name,
+        column_no
+--         t_email_log_id
+    )
+    SELECT DISTINCT 
+--     a.final_headers_name,
+--                     a.lookup_other_name,
+--                     b.stockest_name,
+--                     b.gstin,
+--                     b.pincode,
+                    b.column_no
+--                     b.t_email_log_id
+    FROM stock_statementapp_gcv.m_lookup_values a
+    INNER JOIN stock_statementapp_gcv.t_attachment_header b ON a.lookup_other_name = b.header_name
+    WHERE b.t_email_log_id = p_email_id
+    and  a.final_headers_name = p_final_header_name
+    ;
+   else 
+   INSERT INTO stock_statementapp_gcv.temp_table_get_header (
+--         final_headers_name,
+--         lookup_other_name,
+        column_no
+--         t_email_log_id
+    )
+    values(null);
+  end if;
+
+    -- Select data from temporary table
+    SELECT * FROM stock_statementapp_gcv.temp_table_get_header;
+
+    -- Drop the temporary table
+    DROP TEMPORARY TABLE IF EXISTS stock_statementapp_gcv.temp_table_get_header;
+END;

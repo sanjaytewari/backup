@@ -1,0 +1,100 @@
+CREATE DEFINER=`stockstatementappgcv`@`%` PROCEDURE `stock_statementapp_gcv`.`fetch_and_populate_t_final_output`(p_date DATE)
+BEGIN
+    DECLARE done INT DEFAULT 0;
+    DECLARE cur_attachment_name TEXT;
+    DECLARE cur_count1 INT;
+    DECLARE v_id INT;
+    DECLARE v_id1 INT;
+    DECLARE v_log_value VARCHAR(360);
+    DECLARE v_header_count BIGINT;
+    DECLARE v_log_value_count BIGINT;
+
+    DECLARE attachment_name_count CURSOR FOR
+        SELECT DISTINCT b.attachment_name, a.count1
+        FROM (
+            SELECT attachment_name, COUNT(*) AS count1
+            FROM stock_statementapp_gcv.t_email_log
+            GROUP BY attachment_name
+        ) a
+        RIGHT JOIN stock_statementapp_gcv.t_email_log b ON a.attachment_name = b.attachment_name
+        WHERE CAST(b.created_timestamp AS DATE) BETWEEN 
+              DATE_SUB(LAST_DAY(p_date), INTERVAL DAY(LAST_DAY(p_date)) - 1 DAY) AND p_date
+          AND b.process_timestamp IS NOT NULL;
+
+    DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
+
+    OPEN attachment_name_count;
+    
+    read_loop: LOOP
+        FETCH attachment_name_count INTO cur_attachment_name, cur_count1;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+       
+        SET v_id = 0;
+        SET v_header_count = 0;
+        SET v_log_value = NULL;
+        SET v_log_value_count = 0;
+
+        IF (cur_count1 = 1) THEN 
+            SELECT id INTO v_id
+            FROM stock_statementapp_gcv.t_email_log
+            WHERE attachment_name = cur_attachment_name;
+
+            SELECT COUNT(DISTINCT header_name) INTO v_header_count
+            FROM stock_statementapp_gcv.t_attachment_header
+            WHERE t_email_log_id = v_id;
+
+            SELECT COLUMN_NAME INTO v_log_value
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'stock_statementapp_gcv'
+              AND TABLE_NAME = 't_attachment_log'
+              AND COLUMN_NAME = CONCAT('value', CAST((v_header_count + 1) AS CHAR(40)));
+
+            SET @query = CONCAT('SELECT COUNT(*) INTO', @v_log_value_count,' FROM stock_statementapp_gcv.t_attachment_log WHERE email_log_id = ? AND ', v_log_value, ' IS not NULL');
+            PREPARE stmt FROM @query;
+            SET @v_id = v_id;
+            EXECUTE stmt USING @v_id;
+            DEALLOCATE PREPARE stmt;
+
+            IF (@v_log_value_count = 0) THEN
+                CALL stock_statementapp_gcv.populate_t_final_output(v_id);
+            END IF;
+
+        ELSE    
+            SET v_id1 = CompareAndFindFinalValue(cur_attachment_name);
+
+            SELECT COUNT(DISTINCT header_name) INTO v_header_count
+            FROM stock_statementapp_gcv.t_attachment_header
+            WHERE t_email_log_id = v_id1;
+
+            SELECT COLUMN_NAME INTO v_log_value
+            FROM INFORMATION_SCHEMA.COLUMNS
+            WHERE TABLE_SCHEMA = 'stock_statementapp_gcv'
+              AND TABLE_NAME = 't_attachment_log'
+              AND COLUMN_NAME = CONCAT('value', CAST((v_header_count + 1) AS CHAR(40)));
+
+            SET @query = CONCAT('SELECT COUNT(*) INTO', @v_log_value_count,' FROM stock_statementapp_gcv.t_attachment_log WHERE email_log_id = ? AND ', v_log_value, ' IS not NULL');
+            PREPARE stmt FROM @query;
+            SET @v_id1 = v_id1;
+            EXECUTE stmt USING @v_id1;
+            DEALLOCATE PREPARE stmt;
+
+            DELETE FROM stock_statementapp_gcv.t_final_output
+            WHERE t_email_log_id IN (
+                SELECT DISTINCT id
+                FROM stock_statementapp_gcv.t_email_log
+                WHERE attachment_name = cur_attachment_name
+            )
+            AND t_email_log_id != v_id1
+            AND CAST(from_date AS DATE) BETWEEN 
+                DATE_SUB(LAST_DAY(p_date), INTERVAL DAY(LAST_DAY(p_date)) - 1 DAY) AND p_date;
+
+            IF (@v_log_value_count = 0) THEN 
+                CALL stock_statementapp_gcv.populate_t_final_output(v_id1);
+            END IF;
+        END IF;
+        
+    END LOOP;
+    CLOSE attachment_name_count;
+END;

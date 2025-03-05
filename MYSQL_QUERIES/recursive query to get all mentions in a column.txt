@@ -1,0 +1,36 @@
+QUES->
+text1	                                                               id
+@Anup: has said that @utkarsh is a bad boy and @sanjay is the best.	1
+@sanjay is greatest.	                                                2
+@Sufiyan is also very good as he gave @Sanjay two toffees.	        3
+
+EXPECTED RESULT->
+char1	     count(*)
+@Anup	        1
+@sanjay	        3
+@Sufiyan	1
+@utkarsh	1
+
+#query to get all mentions and their respective counts
+
+with recursive cte1 as( 
+with recursive cte as (
+ select text1, substr(text1,1,POSITION(' ' in text1)-1) as char1,substr(text1,POSITION(' ' in text1)+1) as rest, POSITION(' ' in text1) as length1, id
+ from test_text
+ where text1  like '%@%'
+ UNION
+ select cte.text1,substr(text1,length1+1,POSITION(' ' in cte.rest)-1) as char1,substr(cte.rest,POSITION(' ' in cte.rest)+1) as rest,length1 + POSITION(' ' in cte.rest) as length1, id
+ from cte 
+ where length(cte.text1)> cte.length1
+ )
+ select
+ case 
+ 	when  substr(char1,length(char1),1) = ':' then substr(char1,1,length(char1)-1)
+ 	else char1
+ end as char1
+ from cte
+ where char1 like '@%'
+ )
+ select char1, count(*)
+ from cte1 
+ group by char1

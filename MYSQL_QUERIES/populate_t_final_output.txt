@@ -1,0 +1,111 @@
+ 
+        CREATE DEFINER=`stockstatementappgcv`@`%` PROCEDURE `stock_statementapp_gcv`.`populate_t_final_output`(p_email_log_id bigint)
+BEGIN
+ SET @table_name := 't_attachment_log';
+set @table_name2 := 'm_stockiest_details';
+set @table_name3 := 'select distinct t_email_log_id ,stockest_name  from stock_statementapp_gcv.t_attachment_header';
+set @table_name4 := 'select distinct id, from_email,created_timestamp from stock_statementapp_gcv.t_email_log';
+SET @value := p_email_log_id;
+
+-- set @sql_query1 := concat('delete from stock_statementapp_gcv.t_final_output
+--                            where t_email_log_id = ', @value );
+delete from stock_statementapp_gcv.t_final_output where t_email_log_id  = p_email_log_id;
+
+SET @sql_query := CONCAT('INSERT INTO stock_statementapp_gcv.t_final_output(t_email_log_id, 
+                         email_from,
+                         customer_code,
+                         customer_name,
+                         address_type,
+                         contact_person,
+                         address,
+                         city,
+                         state,
+                         pin_code,
+                         phone_number, 
+                         email_id,
+                         pan_no,
+                         gst_no,
+                         dl_no1, 
+                         dl_no1_valid_upto,
+                         dl_no2,
+                         dl_no2_valid_upto, hq_code,
+                         hq_name, region, `zone`,
+                         sku_code, sku_name, stockist_sku_name,
+                         stockist_pack, brand_name, pack_size,
+                         pts, opening_qty, primary_qty, secondary_qty,
+                         free_qty, total_qty, transit_qty, closing_qty, 
+                         opening_val, primary_val, secondary_val, free_val,
+                         total_val, transit_val, closing_val, opening_value,
+                         primary_value, secondary_value, free_value,
+                         total_value, transit_value, closing_value,
+                         from_date)',
+                        'SELECT d.id as t_email_log_id, d.from_email as email_from,
+                         b.customer_code, b.customer_name,b.address_type,b.contact_person,
+						 b.address,b.city,b.state,b.pin_code,b.phone_no,b.`e-mail`,b.pan_no,
+						 b.gst_no,b.dl_no1 ,b.dl_no1_valid_upto,b.dl_no2 ,b.dl_no2_valid_upto , b.hq_code ,b.hq_name ,b.region ,
+						 b.zone',
+-- 						 'stock_statementapp_gcv.get_column_sequence(',@value, ', ''sku_code'') AS sku_code ',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'sku_code'),''), ' as sku_code' ,
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'sku_name'),''),' as sku_name',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'stockist_sku_name'),''),' as stockist_sku_name',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'stockist_pack'),''),' as stockist_pack',
+						 ' ,NULL as brand_name, NULL as pack_size, null as pts',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'opening_qty'),''),' as opening_qty',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'primary_qty'),''),' as primary_qty',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'secondary_qty'),''),' as secondary_qty',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'free_qty'),''),' as free_qty',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'total_qty'),''),' as total_qty',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'transit_qty'),''),' as transit_qty',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'closing_qty'),''),' as closing_qty',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'opening_val'),''),' as opening_val',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'primary_val'),''),' as primary_val',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'secondary_val'),''),' as secondary_val',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'free_val'),''),' as free_val',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'total_val'),''),' as total_val',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'transit_val'),''),' as transit_val',
+						 ' ,value',coalesce(stock_statementapp_gcv.getColumnSequence(@value,'closing_val'),''),' as closing_val',
+						 ' ,null as opening_value, null as primary_value , null as secondary_value ,null as free_value 
+                           ,null as total_value , null as transit_value , null as closing_value ,',
+						  'cast( d.created_timestamp',' as char(255))', 'as from_date ',
+                  ' FROM ', @table_name ,' a',
+                  ' , ', @table_name2 , ' b',
+                  ' , (', @table_name3 , ') c',
+                  ' , (', @table_name4 , ') d'
+                  ' WHERE a.email_log_id = c.t_email_log_id
+                  and UPPER(c.stockest_name) = UPPER(b.customer_name)
+                  and d.id = a.email_log_id  
+                  and a.email_log_id = ',@value);
+  
+ 
+-- PREPARE dynamic_statement1 FROM @sql_query1;
+-- EXECUTE dynamic_statement1;
+PREPARE dynamic_statement FROM @sql_query;
+EXECUTE dynamic_statement; 
+-- USING @value;
+-- DEALLOCATE PREPARE dynamic_statement1;
+DEALLOCATE PREPARE dynamic_statement;
+
+UPDATE stock_statementapp_gcv.t_final_output a
+JOIN stock_statementapp_gcv.m_product m
+ON UPPER(TRIM(m.material_name)) =  case 
+	                                  when (UPPER(TRIM(substr(stockist_sku_name,1,POSITION('*' in (TRIM(REGEXP_REPLACE(stockist_sku_name, ' [0-9]+\\*[0-9]+', '*')))) -1))) is null 
+	                                       or UPPER(TRIM(substr(stockist_sku_name,1,POSITION('*' in (TRIM(REGEXP_REPLACE(stockist_sku_name, ' [0-9]+\\*[0-9]+', '*')))) -1))) = '') then UPPER(TRIM(stockist_sku_name))
+	                                  else UPPER(TRIM(substr(stockist_sku_name,1,POSITION('*' in (TRIM(REGEXP_REPLACE(stockist_sku_name, ' [0-9]+\\*[0-9]+', '*')))) -1)))
+									end
+SET a.brand_name = m.brand,
+    a.pts = m.pts,
+    a.sku_code = m.material_code,
+    a.sku_name = m.material_name,
+    a.pack_size = m.pack_size ,
+    a.opening_value = coalesce(cast(a.opening_val as decimal(22,7)),0) * coalesce(cast(m.pts as decimal(22,7)),0),
+    a.primary_value = coalesce(cast(a.primary_val as decimal(22,7)),0) * coalesce(cast(m.pts as decimal(22,7)),0),
+    a.secondary_value = coalesce(cast(a.secondary_val as decimal(22,7)),0) * coalesce(cast(m.pts as decimal(22,7)),0),
+    a.free_value = coalesce(cast(a.free_val as  decimal(22,7)),0) * coalesce(cast(m.pts as decimal(22,7)),0),
+    a.total_value = coalesce(cast(a.total_val as decimal(22,7)),0) * coalesce(cast(m.pts as decimal(22,7)),0),
+    a.transit_value = coalesce(cast(a.transit_val as decimal(22,7)),0) * coalesce(cast(m.pts as decimal(22,7)),0),
+    a.closing_value = coalesce(cast(a.closing_val as decimal(22,7)),0) * coalesce(cast(m.pts as decimal(22,7)),0)
+   where a.t_email_log_id = p_email_log_id;
+
+END;
+        
+        

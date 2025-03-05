@@ -1,0 +1,40 @@
+create table running_data
+(
+customer_id bigint,
+name varchar(360),
+visited_on	date,
+amount decimal(22,2)
+);
+
+insert into running_data( customer_id,name,visited_on,amount) values
+(1,'Jhon','2019-01-01',100),
+(2,'Daniel','2019-01-02',110),
+(3,'Jade','2019-01-03',120),
+(4,'Khaled','2019-01-04',130),
+(5,'Winston','2019-01-05',110),
+(6,'Elvis','2019-01-06',140),
+(7,'Anna','2019-01-07',150),
+(8,'Maria','2019-01-08',80),
+(9,'Jaze','2019-01-09',110),
+(1,'Jhon','2019-01-10',130),
+(3,'Jade','2019-01-10',150);
+
+solution:-
+
+select customer_id ,
+    visited_on, 
+    SUM(amount) OVER (partition by customer_id ORDER BY visited_on RANGE BETWEEN INTERVAL 6 DAY PRECEDING AND CURRENT ROW) AS amount,
+    AVG(amount) OVER (partition by customer_id ORDER BY visited_on RANGE BETWEEN INTERVAL 6 DAY PRECEDING AND CURRENT ROW) AS average_amount
+FROM running_data rd
+ORDER BY visited_on;
+--------------------------------------------------------------------
+if we want between rows then 
+
+solution will be 
+
+SELECT 
+    visited_on, 
+    SUM(amount) OVER (ORDER BY visited_on ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS amount, 
+    AVG(amount) OVER (ORDER BY visited_on ROWS BETWEEN 6 PRECEDING AND CURRENT ROW) AS average_amount 
+FROM running_data
+ORDER BY visited_on;

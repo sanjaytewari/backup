@@ -1,0 +1,78 @@
+CREATE FUNCTION stock_statementapp_gcv.compare_ids(id1 INT, id2 INT)
+RETURNS INT
+BEGIN
+    DECLARE result_id INT;
+    DECLARE row_count1 INT;
+    DECLARE row_count2 INT;
+    DECLARE creation_date1 TIMESTAMP;
+    DECLARE creation_date2 TIMESTAMP;
+    
+    SELECT COUNT(*) INTO row_count1 
+    FROM stock_statementapp_gcv.t_attachment_log
+    WHERE email_log_id = id1;
+
+    SELECT COUNT(*) INTO row_count2 
+    FROM stock_statementapp_gcv.t_attachment_log
+    WHERE email_log_id = id2;
+    
+
+    SELECT MAX(created_timestamp) INTO creation_date1 
+    FROM stock_statementapp_gcv.t_email_log
+    WHERE id = id1;
+
+    SELECT MAX(created_timestamp) INTO creation_date2 
+    FROM stock_statementapp_gcv.t_email_log
+    WHERE id = id2;
+    
+    IF EXISTS (
+        SELECT 1
+        FROM t_attachment_log a
+        JOIN t_attachment_log b
+        ON a.email_log_id = id1 AND b.email_log_id = id2
+        WHERE a.value = b.value
+          and  a.value1 = b.value1
+          and  a.value2 = b.value2
+          and  a.value3 = b.value3
+and   a.value4  = b.value4 
+and   a.value5 = b.value5
+and   a.value6 = b.value6
+and   a.value7 = b.value7
+and   a.value8 = b.value8
+and   a.value9 = b.value9
+and   a.value10 = b.value10
+and   a.value11 = b.value11
+and   a.value12 = b.value12
+and   a.value13 = b.value13
+and   a.value14 = b.value14
+and   a.value15 = b.value15
+and   a.value16 = b.value16
+and   a.value17 = b.value17
+and   a.value18 = b.value18
+and   a.value19 = b.value19
+and   a.value20 = b.value20
+and   a.value21 = b.value21
+and   a.value22 = b.value22
+and   a.value23 = b.value23
+and   a.value24 = b.value24
+and   a.value25 = b.value25
+and   a.value26 = b.value26
+and   a.value27 = b.value27
+and   a.value28 = b.value28
+and  a.value29 = b.value29
+and   a.value30 = b.value30
+    ) THEN
+        IF creation_date1 > creation_date2 THEN
+            SET result_id = id1;
+        ELSE
+            SET result_id = id2;
+        END IF;
+    ELSE
+        IF row_count1 > row_count2 THEN
+            SET result_id = id1;
+        ELSE
+            SET result_id = id2;
+        END IF;
+    END IF;
+    
+    RETURN result_id;
+END;

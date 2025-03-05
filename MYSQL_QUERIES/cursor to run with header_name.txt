@@ -1,0 +1,53 @@
+CREATE PROCEDURE stock_statementapp_gcv.temp_procedure_test(p_email_id BIGINT)
+BEGIN
+    -- Variables to hold the final headers string and individual headers
+    DECLARE v_final_headers TEXT;
+    DECLARE v_final_header VARCHAR(360);
+    DECLARE v_pos INT DEFAULT 1;
+    DECLARE v_len INT;
+    DECLARE v_sql_query TEXT DEFAULT '';
+    DECLARE v_table_name VARCHAR(50) DEFAULT 't_attachment_log';
+    DECLARE v_value VARCHAR(50) DEFAULT '9';
+    DECLARE v_final_header_array TEXT;
+
+    -- Call the function to get the final headers
+    SET v_final_header_array = stock_statementapp_gcv.get_final_header_name(p_email_id);
+
+    -- Temporary table to store the result of the procedure call
+    CREATE TEMPORARY TABLE temp_result (final_headers_array TEXT);
+    
+    -- Insert the result of the function into the temporary table
+    INSERT INTO temp_result (final_headers_array) VALUES (v_final_header_array);
+
+    -- Get the result from the temporary table into the variable
+    SELECT final_headers_array INTO v_final_headers FROM temp_result;
+
+    -- Drop the temporary table
+    DROP TEMPORARY TABLE IF EXISTS temp_result;
+
+    -- Get the length of the final headers string
+    SET v_len = LENGTH(v_final_headers);
+
+    -- Loop through the final headers string and extract each header
+    WHILE v_pos <= v_len DO
+        SET v_final_header = SUBSTRING_INDEX(SUBSTRING_INDEX(v_final_headers, ',', v_pos), ',', -1);
+        SET v_pos = v_pos + 1;
+        
+       set @value = p_email_id;
+
+        -- Construct the SQL part for each header
+        IF @v_sql_query = '' THEN
+            SET @v_sql_query = CONCAT('SELECT value', getColumnSequence(@value, v_final_header), ' AS ', v_final_header);
+        ELSE
+            SET @v_sql_query = CONCAT(v_sql_query, ', value', getColumnSequence(@value, v_final_header), ' AS ', v_final_header);
+        END IF;
+    END WHILE;
+
+    -- Finalize the SQL query
+    SET @v_sql_query = CONCAT(@v_sql_query, ' FROM ', v_table_name, ' WHERE email_log_id = ?');
+
+    -- Prepare and execute the dynamic SQL statement
+    PREPARE dynamic_statement FROM @v_sql_query;
+    EXECUTE dynamic_statement USING @value;
+    DEALLOCATE PREPARE dynamic_statement;
+END ;

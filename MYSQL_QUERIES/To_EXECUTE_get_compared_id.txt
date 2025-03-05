@@ -1,0 +1,27 @@
+  create function stock_statementapp_gcv.compared_email_log_id_data()
+   returns bigint 
+   begin 
+   	DECLARE email_log_id_count CURSOR FOR 
+   	select b.id,b.created_timestamp, a.* from 
+   (select attachment_name, count(*) as count from  stock_statementapp_gcv.t_email_log
+   group by attachment_name ) a,
+   stock_statementapp_gcv.t_email_log b
+   where a.attachment_name = b.attachment_name;
+  
+  DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = TRUE;
+    
+    OPEN email_log_id_count;
+    read_loop: LOOP
+        FETCH email_log_id_count INTO cur_id,cur_created_timestamp,curattachment_name,cur_count;
+        IF done THEN
+            LEAVE read_loop;
+        END IF;
+       
+       if cur_count > 1
+       then 'call function that will compare dta of two email_id and will return id accordingly';
+       end if;
+   end loop;
+  CLOSE email_log_id_count;
+    
+    RETURN 0;
+END;

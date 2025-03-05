@@ -1,0 +1,21 @@
+create procedure stock_statementapp_gcv.populate_file_not_in_t_final_output()
+begin
+	
+	delete from stock_statementapp_gcv.file_not_in_t_final_output
+	where cast(created_timestamp as date) between DATE_SUB(LAST_DAY(CURRENT_DATE()), INTERVAL DAY(LAST_DAY(CURRENT_DATE())) - 1 DAY) and CURRENT_DATE();
+	
+INSERT INTO stock_statementapp_gcv.file_not_in_t_final_output
+(id, from_email, attachment_name, created_timestamp,attachment_path)
+select b.id,b.from_email,b.attachment_name,b.created_timestamp,b.attachment_path  
+from
+   (select attachment_name, count(*) 
+       FROM stock_statementapp_gcv.t_email_log
+       where  cast(created_timestamp as date) between DATE_SUB(LAST_DAY(CURRENT_DATE()), INTERVAL DAY(LAST_DAY(CURRENT_DATE())) - 1 DAY) and CURRENT_DATE() 
+       and process_timestamp is not null
+          group by attachment_name having count(*)>1)a,
+          stock_statementapp_gcv.t_email_log b 
+          where a.attachment_name = b.attachment_name
+          and cast(b.created_timestamp as date) between DATE_SUB(LAST_DAY(CURRENT_DATE()), INTERVAL DAY(LAST_DAY(CURRENT_DATE())) - 1 DAY) and CURRENT_DATE()  
+          and b.process_timestamp is not null
+          and b.id not in (select distinct t_email_log_id from stock_statementapp_gcv.t_final_output);
+END;

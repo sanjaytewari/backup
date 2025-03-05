@@ -1,0 +1,95 @@
+stock entry 
+
+material_id	qty_recieved	exp_date	finished	remaining
+12	987	2024-12-06	false	[NULL]
+12	1	2024-12-04	true	0
+12	3	2024-12-05	true	0
+12	102	2024-12-05	false	1.88
+
+
+material 
+
+rr_no	material_id	final_qty	finished	remaining
+1	12	2.2	true	0
+2	12	100.12	true	0
+
+
+
+CREATE OR REPLACE FUNCTION practice.populate_inventory_result_test2()
+RETURNS numeric 
+LANGUAGE plpgsql
+AS $$
+declare
+C1 cursor for 
+SELECT a.material_id,a.final_qty,a.rr_no
+   FROM practice.material a
+where a.finished = false
+order by rr_no ;
+
+qty_to_finish numeric(22,2);
+available_qty numeric(22,2);
+v_qty_recieved numeric(22,2);
+v_exp_date date;
+
+begin
+	truncate practice.inventory_result_test ;
+  
+   for I in C1  loop
+   	qty_to_finish := 0;
+    available_qty := 0;
+    v_qty_recieved := 0;
+   
+   SELECT qty_recieved , stock_entry.exp_date into v_qty_recieved , v_exp_date
+            FROM practice.stock_entry
+            where stock_entry.material_id = I.material_id
+            and finished = false 
+            ORDER BY stock_entry.exp_date limit 1;
+    
+           available_qty := available_qty + v_qty_recieved;
+           qty_to_finish := qty_to_finish + I.final_qty;
+     
+    if    available_qty >=   qty_to_finish then 
+        available_qty := available_qty - qty_to_finish;
+        qty_to_finish := 0;
+         update practice.material
+         set finished = true ,
+         remaining = 0
+         where rr_no = I.rr_no;
+        
+        update practice.stock_entry
+        set remaining = available_qty
+        where material_id = I.material_id
+        and finished = false 
+        and qty_recieved = v_qty_recieved
+        and exp_date = v_exp_date;
+    
+    else  
+       qty_to_finish := qty_to_finish - available_qty;
+       available_qty := 0;
+      
+      update practice.stock_entry
+      set finished = true ,
+         remaining = 0
+      where material_id = I.material_id
+        and qty_recieved = v_qty_recieved
+       and exp_date = v_exp_date;
+      
+      update practice.material
+         set remaining = qty_to_finish
+         where rr_no = I.rr_no; 
+   end if;
+  end loop;
+   
+  INSERT INTO practice.inventory_result_test (material_id, available_inventory, expiry_date)
+  select material_id ,
+  case 
+	  when remaining is null then qty_recieved  
+	  else  remaining
+  end as available_inventory,exp_date
+  from practice.stock_entry 
+  where finished != true 
+  and coalesce(remaining,0) != qty_recieved; 
+  
+ return 0;
+end;
+$$;
