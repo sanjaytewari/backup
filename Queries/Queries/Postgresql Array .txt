@@ -1,0 +1,233 @@
+--create the schema practice 
+--Query
+create schema practice;
+
+--create squence practice.EMPLOYEE_SEQ
+--Query
+create sequence practice.EMPLOYEE_SEQ start 1 increment 1;
+
+--in practice schema create table EMPLOYEE
+--Query
+create table practice.EMPLOYEE(
+ID bigint default nextval('practice.EMPLOYEE_SEQ'),
+EMP_NAME varchar(360),
+DEPARTMENT varchar(360),
+DESIGNATION text[],
+SALARY numeric(22,2),
+FROM_DATE date,
+TO_DATE date,
+CREATION_DATE timestamp default (now() at time zone 'AsiaKolkata'),
+CREATED_BY bigint default 1,
+LAST_UPDATED_BY bigint default 1,
+LAST_UPDATE_DATE timestamp default (now() at time zone 'AsiaKolkata')
+);
+
+--create a function practice.auto_update_last_update_date()  returning trigger
+--Query
+create function practice.auto_update_last_update_date()
+returns trigger 
+language plpgsql as $$ 
+begin
+new.LAST_UPDATE_DATE = now() at time zone 'AsiaKolkata';
+return new;
+end;
+$$;
+
+--create a trigger EMPLOYEE_auto_update_last_update_date on  practice.EMPLOYEE table which activate before do update operation on it
+--Query
+create trigger EMPLOYEE_auto_update_last_update_date
+before update on  practice.EMPLOYEE 
+for each row execute function  practice.auto_update_last_update_date();
+
+--check current time
+--Query
+select now() at time zone 'AsiaKolkata'
+
+-- inserting values in practice.EMPLOYEE
+--Query
+INSERT INTO practice.EMPLOYEE
+(EMP_NAME, DEPARTMENT, DESIGNATION, SALARY, FROM_DATE )
+VALUES( 'Girish Singla', 'Developer', array['Trainee','Database Trainee'], 10000, '2024-07-22');
+
+--Query
+INSERT INTO practice.EMPLOYEE
+(EMP_NAME, DEPARTMENT, DESIGNATION, SALARY, FROM_DATE )
+VALUES( 'Vijay Thakur', 'Developer', array['Trainee','ReactJS Trainee'], 10000, '2024-06-22');
+
+-- appending values in array column DESIGNATION in practice.EMPLOYEE
+--1st way
+--Query
+update  practice.EMPLOYEE
+SET DESIGNATION= DESIGNATION  ARRAY['Software Developer Trainee', 'Node JS Trainee']
+where ID = 1;
+
+--Query
+update  practice.EMPLOYEE
+SET DESIGNATION= DESIGNATION  ARRAY['PHP Trainee', 'Node JS Trainee']
+where ID = 2;
+
+--or 2nd way
+--Query
+update  practice.EMPLOYEE
+SET DESIGNATION= ARRAY['PHP Trainee', 'Node JS Trainee','PowerBi Trainee']
+where ID = 2; 
+
+-- updating salary column in practice.EMPLOYEE
+--Query
+update practice.EMPLOYEE set SALARY = 15000 where ID =1;
+
+--retrieving data from practice.EMPLOYEE table
+--Query
+select  from practice.EMPLOYEE;
+
+--fetch DESIGNATION array column 2nd value
+--Query
+select DESIGNATION [2] from EMPLOYEE e where ID=1;
+
+--fetching  array's  2nd value
+--Query
+SELECT ('{PHP Trainee, Node JS Trainee, PowerBi Trainee}'TEXT[])[2] AS second_element;
+
+--updating the DESIGNATION array column 2nd value to new value
+--Query
+update  practice.EMPLOYEE
+SET DESIGNATION[2]= 'JS Trainee'
+where ID = 2;
+
+--find array length
+--Query
+select array_length(DESIGNATION,1) ---- for 1 D array it is 1
+from practice.EMPLOYEE
+where ID = 2;
+
+--or 2nd way
+--Query
+select count() from(
+select UNNEST(DESIGNATION) ---- for 1 D array it is 1
+from practice.EMPLOYEE
+where ID = 2
+);
+
+--adding 2d array column 
+--Query
+alter table EMPLOYEE add column skill_levels text[][];
+
+--updating 2-D array column
+--Query
+update EMPLOYEE set skill_levels='{{Beginner, Intermediate}, {Advanced, Expert}}' where ID =1;
+--Query
+update EMPLOYEE set skill_levels='{{Beginner, Intermediate}}' where ID =2;
+
+
+--inserting values in table 
+--Query
+INSERT INTO practice.EMPLOYEE
+(EMP_NAME, DEPARTMENT, DESIGNATION, SALARY, FROM_DATE,skill_levels )
+VALUES( 'Raju Singh', 'Developer', array['JS Trainee','PHP Trainee'], 15000, '2024-05-20','{{Beginner}}');
+
+--Query
+INSERT INTO practice.EMPLOYEE
+(EMP_NAME, DEPARTMENT, DESIGNATION, SALARY, FROM_DATE,skill_levels )
+VALUES( 'Sonu Rathore', 'Developer', array['Power BI Trainee','Python Trainee'], 20000, '2024-02-21','{{Intermediate},{Advanced}}');
+
+--Query
+INSERT INTO practice.EMPLOYEE
+(EMP_NAME, DEPARTMENT, DESIGNATION, SALARY, FROM_DATE,skill_levels )
+VALUES( 'Jignesh Jain', 'Developer', array['Node JS Trainee','AI-ML Trainee'], 20000, '2024-01-28','{{Beginner},{Advanced}}');
+
+-- find array length
+--Query
+select array_length(skill_levels,2)
+from EMPLOYEE
+where ID = 1;
+
+-- use of unnest() function on 2-d array (unnest function is used to expand an array into a set of rows.)
+--Query
+select unnest(skill_levels)
+from EMPLOYEE
+where ID = 1;
+
+--fetch skill_levels[2:2][1:2] values 
+--Query
+SELECT skill_levels[2:2][1:2] AS row_2
+FROM EMPLOYEE e 
+WHERE ID  = 1;
+
+-- fetch and expand skill_levels[2:2][1:2] using unnest function
+SELECT unnest(skill_levels[2:2][1:2]) AS row_2
+FROM EMPLOYEE e 
+WHERE ID  = 1;
+
+-- fetch given array [2:2][1:2] values 
+--[1:2][1:2] represents [row_startrow_end][col_startcol_end] and default value of row_start=1 & col_start=1
+--Query
+select  ('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'TEXT[][])[2:2][1:2] AS second_set_first_element;
+
+-- fetch given array [3:3][1] values 
+--Query
+select  ('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'TEXT[][])[3:3][1] AS second_set_first_element;
+
+---- fetch given array [1:2][1:1] values 
+--Query
+SELECT ('{{Beginner,Intermediate},{Advanced,Expert}}'TEXT[][] )[1:2][1:1] AS second_set_elements;
+
+--expand given array [][] using unnest function
+--Query
+SELECT unnest('{{Beginner,Intermediate},{Advanced,Expert}}'TEXT[][]) AS second_set_elements;
+
+--expand given array [2:2][1:2] using unnest function
+--Query
+select  unnest (('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'TEXT[][])[22][12]) AS second_set_first_element;
+
+--fetch given array [2] value
+--Query
+ SELECT ('{PHP Trainee, Node JS Trainee, PowerBi Trainee}'TEXT[]) [2] AS second_element;
+
+select  from EMPLOYEE e ;
+
+--the VACUUM command helps clean up and optimize the database by reclaiming storage and updating statistics.
+ vacuum ;
+
+--relname: The name of the table.
+--n_dead_tup: The number of dead tuples in the table, which are rows that have been deleted or obsoleted but not yet cleaned up by VACUUM.
+--pg_stat_user_tables: A system catalog view that shows statistics about tables in the current database.
+--WHERE relname = 'employees': Filters the results to only show information for the table named employees.
+--Usage: This query will return the number of dead tuples for the table named employees. 
+--If we get a result, it indicates how many tuples are dead and may need cleanup.
+--Query
+SELECT relname, n_dead_tup
+FROM pg_stat_user_tables
+WHERE relname = 'employees';
+
+--The pg_stat_user_tables view in PostgreSQL provides statistics about user tables in the current database. 
+--By querying this view, we can obtain various performance-related metrics for the tables, such as the number of dead tuples, 
+--the number of live tuples, and the number of index scans, among others.
+
+--Columns in pg_stat_user_tables
+--Here’s a list of common columns we might find in pg_stat_user_tables and their meanings:
+--relid: OID(Object Identifier:a unique identifier used internally by PostgreSQL to identify database objects.
+Each object in the PostgreSQL system, such as tables, indexes, and sequences, is assigned a unique OID.) of the table.
+--relname: Name of the table.
+--n_tup_ins: Number of tuples inserted.
+--n_tup_upd: Number of tuples updated.
+--n_tup_del: Number of tuples deleted.
+--n_tup_hot_upd: Number of HOT (Heap-Only Tuple) updates.
+--n_live_tup: Number of live tuples (rows) in the table.
+--n_dead_tup: Number of dead tuples (rows that are no longer valid but not yet cleaned up by VACUUM).
+--n_mod_since_analyze: Number of rows modified since the last ANALYZE.
+--last_vacuum: Last time the table was vacuumed.
+--last_autovacuum: Last time the table was vacuumed by autovacuum.
+--last_analyze: Last time the table was analyzed.
+--last_autoanalyze: Last time the table was analyzed by autovacuum.
+--vacuum_count: Number of times the table has been vacuumed.
+--autovacuum_count: Number of times the table has been vacuumed by autovacuum.
+--analyze_count: Number of times the table has been analyzed.
+--autoanalyze_count: Number of times the table has been analyzed by autovacuum.
+
+--Query
+select * FROM pg_stat_user_tables;
+ 
+--By querying the below view, we can obtain various performance-related metrics for the table 'EMPLOYEE'
+--Query
+select * FROM pg_stat_user_tables
+WHERE relname = 'EMPLOYEE';

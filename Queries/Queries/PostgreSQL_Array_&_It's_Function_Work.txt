@@ -1,0 +1,326 @@
+--create the schema practice 
+create schema practice;
+
+--create squence practice."EMPLOYEE_SEQ"
+create sequence practice."EMPLOYEE_SEQ" start 1 increment 1;
+
+--in practice schema create table "EMPLOYEE"
+create table practice."EMPLOYEE"(
+"ID" bigint default nextval('practice."EMPLOYEE_SEQ"'),
+"EMP_NAME" varchar(360),
+"DEPARTMENT" varchar(360),
+"DESIGNATION" text[],
+"SALARY" numeric(22,2),
+"FROM_DATE" date,
+"TO_DATE" date,
+"CREATION_DATE" timestamp default (now() at time zone 'Asia/Kolkata'),
+"CREATED_BY" bigint default 1,
+"LAST_UPDATED_BY" bigint default 1,
+"LAST_UPDATE_DATE" timestamp default (now() at time zone 'Asia/Kolkata')
+);
+
+--create a function practice.auto_update_last_update_date()  returning trigger
+create function practice.auto_update_last_update_date()
+returns trigger 
+language plpgsql as $$ 
+begin
+new."LAST_UPDATE_DATE" = now() at time zone 'Asia/Kolkata';
+return new;
+end;
+$$;
+
+--create a trigger EMPLOYEE_auto_update_last_update_date on  practice."EMPLOYEE" table which activate before do update operation on it
+create trigger EMPLOYEE_auto_update_last_update_date
+before update on  practice."EMPLOYEE" 
+for each row execute function  practice.auto_update_last_update_date();
+
+--check current time
+select now() at time zone 'Asia/Kolkata'
+
+-- inserting values in practice."EMPLOYEE"
+INSERT INTO practice."EMPLOYEE"
+("EMP_NAME", "DEPARTMENT", "DESIGNATION", "SALARY", "FROM_DATE" )
+VALUES( 'Girish Singla', 'Developer', array['Trainee','Database Trainee'], 10000, '2024-07-22');
+
+INSERT INTO practice."EMPLOYEE"
+("EMP_NAME", "DEPARTMENT", "DESIGNATION", "SALARY", "FROM_DATE" )
+VALUES( 'Vijay Thakur', 'Developer', array['Trainee','ReactJS Trainee'], 10000, '2024-06-22');
+
+--Appending 1-D Array
+-- appending values in array column "DESIGNATION" in practice."EMPLOYEE"
+--1st way
+update  practice."EMPLOYEE"
+SET "DESIGNATION"= "DESIGNATION" || ARRAY['Software Developer Trainee', 'Node JS Trainee']
+where "ID" = 1;
+
+update  practice."EMPLOYEE"
+SET "DESIGNATION"= "DESIGNATION" || ARRAY['PHP Trainee', 'Node JS Trainee']
+where "ID" = 2;
+--or 2nd way
+update  practice."EMPLOYEE"
+SET "DESIGNATION"= ARRAY['PHP Trainee', 'Node JS Trainee','PowerBi Trainee']
+where "ID" = 2; 
+
+-- updating salary column in practice."EMPLOYEE"
+update practice."EMPLOYEE" set "SALARY" = 15000 where "ID" =1;
+
+--retrieving data from practice."EMPLOYEE" table
+select * from practice."EMPLOYEE";
+
+--Selecting Elements from a 1D Array
+--fetch "DESIGNATION" array column 2nd value
+select "DESIGNATION" [2] from "EMPLOYEE" e where "ID"=1;
+
+--fetching  array's  2nd value
+SELECT ('{PHP Trainee, Node JS Trainee, PowerBi Trainee}'::TEXT[])[2] AS second_element;
+
+--updating the "DESIGNATION" array column 2nd value to new value
+update  practice."EMPLOYEE"
+SET "DESIGNATION"[2]= 'JS Trainee'
+where "ID" = 2;
+
+--find array length
+select array_length("DESIGNATION",1) ---- for 1 D array it is 1
+from practice."EMPLOYEE"
+where "ID" = 2;
+
+--or 2nd way
+select count(*) from(
+select UNNEST("DESIGNATION") ---- for 1 D array it is 1
+from practice."EMPLOYEE"
+where "ID" = 2
+);
+
+--adding 2d array column 
+alter table "EMPLOYEE" add column "skill_levels" text[][];
+
+--updating 2-D array column
+update "EMPLOYEE" set "skill_levels"='{{"Beginner", "Intermediate"}, {"Advanced", "Expert"}}' where "ID" =1;
+update "EMPLOYEE" set "skill_levels"='{{"Beginner", "Intermediate"}}' where "ID" =2;
+
+
+--inserting values in table 
+INSERT INTO practice."EMPLOYEE"
+("EMP_NAME", "DEPARTMENT", "DESIGNATION", "SALARY", "FROM_DATE","skill_levels" )
+VALUES( 'Raju Singh', 'Developer', array['JS Trainee','PHP Trainee'], 15000, '2024-05-20','{{"Beginner"}}');
+
+INSERT INTO practice."EMPLOYEE"
+("EMP_NAME", "DEPARTMENT", "DESIGNATION", "SALARY", "FROM_DATE","skill_levels" )
+VALUES( 'Sonu Rathore', 'Developer', array['Power BI Trainee','Python Trainee'], 20000, '2024-02-21','{{"Intermediate"},{"Advanced"}}');
+
+INSERT INTO practice."EMPLOYEE"
+("EMP_NAME", "DEPARTMENT", "DESIGNATION", "SALARY", "FROM_DATE","skill_levels" )
+VALUES( 'Jignesh Jain', 'Developer', array['Node JS Trainee','AI-ML Trainee'], 20000, '2024-01-28','{{"Beginner"},{"Advanced"}}');
+
+-- find array length for id column has value=1 in EMPLOYEE table
+select array_length(skill_levels,2)
+from "EMPLOYEE"
+where "ID" = 1;
+
+--Unnesting 2-D Arrays
+-- use of unnest() function on 2-d array (unnest function is used to expand an array into a set of rows.)
+--unnest(skill_levels): The unnest function is used to expand an array into a set of rows. This means each element of the skill_levels array will be returned as a separate row.
+--FROM "EMPLOYEE": This specifies the table from which to fetch the data.
+--WHERE "ID" = 1: This filters the results to only include the row where the ID column has the value 1.
+select unnest(skill_levels)
+from "EMPLOYEE"
+where "ID" = 1;
+
+--Slicing 2D Arrays
+--fetch "skill_levels"[2:2][1:2] values 
+--"skill_levels"[2:2]: This slices the skill_levels array to include only the 2nd element (using 1-based indexing). If skill_levels is an array of arrays, this will select the 2nd sub-array.
+--[1:2]: This further slices the resulting sub-array from index 1 to 2. This effectively selects a portion of the sub-array. If skill_levels contains simple text elements and not arrays, [1:2] will just return the 2nd element as an array.
+--AS row_2: This renames the result of the slicing operation to row_2.
+SELECT "skill_levels"[2:2][1:2] AS row_2
+FROM "EMPLOYEE" e 
+WHERE "ID"  = 1;
+
+--Unnesting 2-D Arrays
+-- fetch and expand "skill_levels"[2:2][1:2] using unnest function
+--"skill_levels"[2:2]: Similar to the previous query, this slices the skill_levels array to get the 2nd element or sub-array.
+--[1:2]: Further slices this result to get the elements from index 1 to 2.
+--unnest(...): Expands the resulting array into individual rows.
+--AS row_2: Renames the result of the unnest operation to row_2.
+SELECT unnest("skill_levels"[2:2][1:2]) AS row_2
+FROM "EMPLOYEE" e 
+WHERE "ID"  = 1;
+
+--Slicing 2D Arrays
+-- fetch given array [2:2][1:2] values 
+--[1:2][1:2] represents [row_start:row_end][col_start:col_end] and default value of row_start=1 & col_start=1
+--The initial array is cast into a 2D array of text.
+--The [2:2] slice extracts the 2nd sub-array.
+--The [1:2] slice extracts the elements from index 1 to 2 of the 2nd sub-array.
+--The result is {Advanced, Expert}.
+select  ('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[2:2][1:2] AS second_set_first_element;
+
+-- fetch given array [3:3][1] values 
+--'{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][]: This is a 2D array of text.
+--[3:3]: This selects the 3rd sub-array, resulting in {Noob, Ultra Noob}.
+--[1]: This selects the 1st element from the {Noob, Ultra Noob} array, which is 'Noob'.
+select  ('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[3:3][1] AS second_set_first_element;
+
+---- fetch given array [1:2][1:1] values 
+--'{{Beginner,Intermediate},{Advanced,Expert}}'::TEXT[][]: This is a 2D array with two sub-arrays.
+--[1:2]: This selects both sub-arrays (1st and 2nd), resulting in {{Beginner, Intermediate}, {Advanced, Expert}}.
+--[1:1]: This selects the 1st element from each of these sub-arrays, so the result is {'Beginner', 'Advanced'}.
+SELECT ('{{Beginner,Intermediate},{Advanced,Expert}}'::TEXT[][] )[1:2][1:1] AS second_set_elements;
+
+--[1:3]: Selects all sub-arrays from the 1st to the 3rd, 
+--[1:2]: Selects the 1st and 2nd elements from each of these sub-arrays. Since it applies to each sub-array,
+select  ('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[1:3][1:2] AS second_set_first_element;
+
+--Unnesting Arrays
+--expand given array [][] using unnest function
+--unnest('{{Beginner,Intermediate},{Advanced,Expert}}'::TEXT[][]): This function expands the 2D array into a set of rows.
+--It flattens the array into individual elements.
+SELECT unnest('{{Beginner,Intermediate},{Advanced,Expert}}'::TEXT[][]) AS second_set_elements;
+
+--expand given array [2:2][1:2] using unnest function
+--('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[2:2]: Selects the 2nd sub-array {Advanced, Expert}.
+--[1:2]: Selects both elements from this sub-array.
+--unnest(...): Flattens the resulting array {Advanced, Expert} into individual rows.
+select  unnest (('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[2:2][1:2]) AS second_set_first_element;
+
+--expand given array [3:3][1:2] using unnest function
+--Cast the string to a 2D array.
+--Slice the array to get the 3rd sub-array {Noob, Ultra Noob}.
+--Slice the resulting sub-array to get {Noob, Ultra Noob} (as [1:2] selects both elements).
+--Unnest this array into individual rows.
+select unnest(('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[3:3][1:2])
+
+
+--Selecting Elements from a 2D Array
+--fetch given array [2] value
+--'{PHP Trainee, Node JS Trainee, PowerBi Trainee}'::TEXT[]: This is a 1D array with three text elements.
+--[2]: Selects the 2nd element from this array, which is 'Node JS Trainee'.
+ SELECT ('{PHP Trainee, Node JS Trainee, PowerBi Trainee}'::TEXT[]) [2] AS second_element;
+
+select * from "EMPLOYEE" e ;
+
+-- finding the length of a value stored in 2-d array using length() function
+--('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[3][2]: Selects the 2nd element from the 3rd sub-array, which is 'Ultra Noob'.
+--length('Ultra Noob'): Calculates the length of 'Ultra Noob', which is 10.
+SELECT length(
+    ('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[3][2]
+);
+
+-- finding the length of a value stored in 2-d array using char_length() function
+--char_length('Ultra Noob'): Calculates the number of characters in 'Ultra Noob', which is the same as length() in this context.
+SELECT char_length(
+    ('{{Beginner,Intermediate},{Advanced,Expert},{Noob,Ultra Noob}}'::TEXT[][])[3][2]
+);
+
+
+--the VACUUM command helps clean up and optimize the database by reclaiming storage and updating statistics.
+ vacuum ;
+
+--relname: The name of the table.
+--n_dead_tup: The number of dead tuples in the table, which are rows that have been deleted or obsoleted but not yet cleaned up by VACUUM.
+--pg_stat_user_tables: A system catalog view that shows statistics about tables in the current database.
+--WHERE relname = 'employees': Filters the results to only show information for the table named employees.
+--Usage: This query will return the number of dead tuples for the table named employees. 
+--If we get a result, it indicates how many tuples are dead and may need cleanup.
+SELECT relname, n_dead_tup
+FROM pg_stat_user_tables
+WHERE relname = 'employees';
+
+--The pg_stat_user_tables view in PostgreSQL provides statistics about user tables in the current database. 
+--By querying this view, we can obtain various performance-related metrics for the tables, such as the number of dead tuples, 
+--the number of live tuples, and the number of index scans, among others.
+
+--Columns in pg_stat_user_tables
+--Here’s a list of common columns we might find in pg_stat_user_tables and their meanings:
+--relid: OID of the table.
+--relname: Name of the table.
+--n_tup_ins: Number of tuples inserted.
+--n_tup_upd: Number of tuples updated.
+--n_tup_del: Number of tuples deleted.
+--n_tup_hot_upd: Number of HOT (Heap-Only Tuple) updates.
+--n_live_tup: Number of live tuples (rows) in the table.
+--n_dead_tup: Number of dead tuples (rows that are no longer valid but not yet cleaned up by VACUUM).
+--n_mod_since_analyze: Number of rows modified since the last ANALYZE.
+--last_vacuum: Last time the table was vacuumed.
+--last_autovacuum: Last time the table was vacuumed by autovacuum.
+--last_analyze: Last time the table was analyzed.
+--last_autoanalyze: Last time the table was analyzed by autovacuum.
+--vacuum_count: Number of times the table has been vacuumed.
+--autovacuum_count: Number of times the table has been vacuumed by autovacuum.
+--analyze_count: Number of times the table has been analyzed.
+--autoanalyze_count: Number of times the table has been analyzed by autovacuum.
+
+select * FROM pg_stat_user_tables;
+ 
+--By querying the below view, we can obtain various performance-related metrics for the table 'EMPLOYEE'
+select * FROM pg_stat_user_tables
+WHERE relname = 'EMPLOYEE';
+
+
+
+--Array element existence:
+--check if the 2D array {{Beginner, Intermediate}, {Advanced, Expert}, {Noob, Ultra Noob}} contains the 1D array {{Beginner}} as a subset.
+--Operator: @> is used to determine if the left-hand array contains the right-hand array.
+--Result: The query returns true because the element 'Beginner' exists within one of the sub-arrays of the 2D array {{Beginner, Intermediate}, {Advanced, Expert}, {Noob, Ultra Noob}}.
+SELECT '{{Beginner, Intermediate}, {Advanced, Expert}, {Noob, Ultra Noob}}' @> '{{Beginner}}'::TEXT[];
+
+--Updating Elements in a 2D Array
+--Update a specific element:
+--Query Purpose: To update a specific element in the 2D array column skill_levels in the EMPLOYEE table.
+--Update Operation: Changes the value at the position [2][1] (second sub-array, first element) to 'Updated Noob'.
+--Filter Condition: Ensures only the row with ID equal to 4 is updated.
+UPDATE "EMPLOYEE" 
+SET skill_levels  [2][1] = 'Updated Noob'
+WHERE "ID"  = 4;
+
+--Update an entire sub-array:
+--Query Purpose: To update the entire second sub-array in the skill_levels column for a specific record in the EMPLOYEE table.
+--Update Operation: Replaces the second row (sub-array) of the 2D array with the new values {"Updated Advanced", "Updated Expert"}.
+--Filter Condition: Limits the update to the row with ID equal to 1.
+UPDATE "EMPLOYEE" 
+SET skill_levels [2:2] = '{"Updated Advanced", "Updated Expert"}'
+WHERE "ID"  = 1;
+
+--aggregate employee names into a 2D array
+--Inner Subquery:
+--ARRAY_AGG("EMP_NAME"): This function collects all employee names (EMP_NAME) into a 1D array for each group of ID.
+--GROUP BY "ID": Groups the rows by ID, so the aggregation occurs within each ID group.
+SELECT ARRAY_AGG("EMP_NAME") AS NAMES
+    FROM "EMPLOYEE" e 
+    GROUP BY "ID";
+--Outer Query:
+--ARRAY_AGG(NAMES): Aggregates all the 1D arrays (from the inner subquery) into a single 2D array.
+SELECT ARRAY_AGG(NAMES) AS employee_names
+FROM (
+    SELECT ARRAY_AGG("EMP_NAME") AS NAMES
+    FROM "EMPLOYEE" e 
+    GROUP BY "ID"
+) subquery;
+
+--Checking Array Properties
+--ANY Operator: The ANY operator is used to test if a value is present in an array. 
+--It works with arrays and checks if the specified value is equal to any of the elements in the array.
+
+--Check if a specific value exists in the 1D array:
+--Query Objective: To retrieve rows from the EMPLOYEE table where the value 'PHP Trainee' is present in the "DESIGNATION" array column.
+--ANY Operator: Checks if 'PHP Trainee' is an element of the array stored in the "DESIGNATION" column for each row.
+--Result: Includes all rows where 'PHP Trainee' is one of the values in the array.
+select * from "EMPLOYEE" where  'PHP Trainee' = ANY("DESIGNATION")
+
+--Check if a specific value exists in the 2D array:
+--Query Objective: To select rows from the EMPLOYEE table where the value 'Beginner' is present in a slice of the skill_levels array column.
+--Array Slicing (skill_levels[1:5]): Extracts a subset of the array, specifically elements from index 1 through 5.
+--ANY Operator: Checks if 'Beginner' is an element in the sliced array.
+--Result: Includes rows where 'Beginner' is found within the first 5 elements of the skill_levels array.
+select * from "EMPLOYEE" where  'Beginner' = ANY(skill_levels[1:5][2:2]);
+
+-- fetch data fro those employees whose "skill_levels"[2][2] is Updated Expert
+select * from "EMPLOYEE" where  skill_levels[2][2] = 'Updated Expert'
+
+--Update a specific element:
+--Query Purpose: To update a specific element in the 2D array column skill_levels in the EMPLOYEE table.
+--Update Operation: Changes the value at the position [2][2] (second sub-array, first element) to 'Beginner'.
+--Filter Condition: Ensures only the row with ID equal to 1 is updated.
+update "EMPLOYEE"
+set skill_levels[2][2] = 'Beginner'
+where "ID" = 1
+
