@@ -1,0 +1,27 @@
+1->
+
+select name from Employee e
+inner join (select managerId, count(*)
+from Employee where managerId is not null group by managerId having count(*)>= 5)b on e.id = b.managerId
+
+
+import pandas as pd
+
+# Assuming you have a DataFrame 'df' with Employee data
+# Example DataFrame
+# df = pd.DataFrame({'id': ..., 'name': ..., 'managerId': ...})
+
+# Step 1: Create a groupby operation to count employees by managerId
+manager_count = df[df['managerId'].notnull()].groupby('managerId').size().reset_index(name='employee_count')
+
+# Step 2: Filter out managers with fewer than 5 employees
+managers_with_5_or_more = manager_count[manager_count['employee_count'] >= 5]
+
+# Step 3: Merge this filtered data back with the original Employee DataFrame
+result = pd.merge(df, managers_with_5_or_more, how='inner', left_on='id', right_on='managerId')
+
+# Step 4: Select only the 'name' column
+result_names = result['name']
+
+# Show the result
+print(result_names)
