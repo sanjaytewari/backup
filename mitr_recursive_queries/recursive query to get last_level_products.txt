@@ -1,0 +1,22 @@
+with c as (
+with b as (
+with recursive cte 
+as (
+select CAT_ID,PARENT_ID,NAME, LEVEL from CATEGORY_HIERARCHY ch
+where 
+CAT_ID = 1
+union 
+select ch.CAT_ID,ch.PARENT_ID,ch.NAME,ch.LEVEL from CATEGORY_HIERARCHY ch
+inner join cte on cte.CAT_ID = ch.PARENT_ID
+)
+select * from cte
+where CAT_ID not in (select PARENT_ID from cte)
+)
+select b.CAT_ID, pm.ID as PM_ID , row_number() over (PARTITION BY b.CAT_ID order by pm.ID) as PRODUCT_ID
+from b 
+inner join PRODUCT_MASTER pm on b.CAT_ID = pm.CATEGORY_ID
+)
+select LPAD(c.CAT_ID,3,0) as CAT_ID, LPAD(c.PRODUCT_ID,3,0) as PRODUCT_ID,  LPAD(pu.UOM_ID,3,0) as UOM_ID, LPAD(pb.BRAND_ID,3,0) as BRAND_ID 
+from c
+inner join PRODUCT_UOM pu on c.PM_ID = pu.PRODUCT_ID
+inner join PRODUCT_BRAND pb on pu.ID = pb.PRODUCT_UOM_ID
