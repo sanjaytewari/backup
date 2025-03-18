@@ -65,3 +65,5 @@ DECLARE CONTINUE HANDLER FOR NOT FOUND SET done = 1;
     end loop;
          CLOSE attachment_name_count;
 END;
+
+
